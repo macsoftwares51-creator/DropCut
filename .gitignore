@@ -1,0 +1,13 @@
+.env
+venv/
+__pycache__/
+*.py[cod]
+*.log
+uploads/*
+!uploads/.gitkeep
+outputs/*
+!outputs/.gitkeep
+models/*
+!models/.gitkeep
+projects.json
+projects.json.tmp

@@ -1,0 +1,12 @@
+flask
+flask-cors
+python-dotenv
+yt-dlp
+faster-whisper
+av<13.0.0
+google-genai
+mediapipe==0.10.21
+opencv-python-headless<5
+numpy<2
+mcp<2
+waitress

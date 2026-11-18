@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111318">
+  <title>Cutline — Local Video Studio</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111318;
+      --panel: #191c23;
+      --panel-2: #20232b;
+      --panel-3: #262a33;
+      --line: #30343e;
+      --muted: #8e95a3;
+      --text: #f0f2f6;
+      --accent: #c6f36b;
+      --accent-dark: #91be32;
+      --blue: #82a8ff;
+      --danger: #ff777e;
+      --radius: 12px;
+      font: 13px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; background: var(--bg); color: var(--text); }
+    button, input, select, textarea { font: inherit; }
+    button { color: inherit; cursor: pointer; }
+    .app-shell { min-height: 100vh; display: flex; flex-direction: column; }
+    .topbar {
+      height: 66px; padding: 0 22px; display: flex; align-items: center; gap: 25px;
+      background: #17191f; border-bottom: 1px solid var(--line); flex: 0 0 auto;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 208px; }
+    .brand-mark {
+      width: 31px; height: 31px; border-radius: 9px; display: grid; place-items: center;
+      color: #14180d; background: var(--accent); font-weight: 900; font-size: 15px;
+    }
+    .brand-name { font-size: 15px; font-weight: 750; letter-spacing: -.03em; }
+    .brand-caption { color: var(--muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+    .project-badge {
+      max-width: 260px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+      padding: 7px 11px; color: #d3d8e1; background: #22252d; border: 1px solid var(--line); border-radius: 7px;
+    }
+    .view-tabs { display: flex; align-self: stretch; gap: 5px; margin-left: auto; }
+    .view-tab {
+      border: 0; border-bottom: 2px solid transparent; background: transparent; padding: 0 14px;
+      color: var(--muted); font-weight: 650;
+    }
+    .view-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+    .engine-status { display: flex; gap: 13px; padding-left: 14px; border-left: 1px solid var(--line); }
+    .engine { display: flex; align-items: center; gap: 6px; white-space: nowrap; color: #aab1bd; font-size: 11px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 9px #c6f36b70; }
+    main { flex: 1; min-height: 0; }
+    .workspace { display: grid; grid-template-columns: 276px minmax(410px, 1fr) 335px; min-height: calc(100vh - 66px); }
+    .panel { background: var(--panel); min-width: 0; }
+    .left-panel { border-right: 1px solid var(--line); padding: 18px 16px 22px; overflow-y: auto; }
+    .right-panel { border-left: 1px solid var(--line); padding: 18px 15px; overflow-y: auto; }
+    .panel-heading { display: flex; align-items: center; justify-content: space-between; margin: 1px 0 13px; }
+    .eyebrow { text-transform: uppercase; color: #9299a7; letter-spacing: .1em; font-weight: 750; font-size: 10px; }
+    .section { border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 17px; }
+    .section:last-child { border-bottom: 0; }
+    .source-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: #121419; padding: 4px; border-radius: 8px; margin: 11px 0 12px; }
+    .source-tab { border: 0; border-radius: 6px; padding: 8px 4px; background: transparent; color: var(--muted); font-size: 11px; }
+    .source-tab.active { background: #30343e; color: var(--text); font-weight: 650; }
+    .field-label { display: block; color: #b0b6c1; margin: 11px 0 6px; font-size: 11px; }
+    .field, select, textarea {
+      width: 100%; color: var(--text); background: #111319; border: 1px solid #353945;
+      border-radius: 7px; outline: none; padding: 9px 10px;
+    }
+    .field:focus, select:focus, textarea:focus { border-color: var(--accent-dark); box-shadow: 0 0 0 2px #c6f36b1c; }
+    .upload-zone {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+      min-height: 105px; padding: 13px; border: 1px dashed #4a505d; border-radius: 8px;
+      color: var(--muted); background: #15171d; cursor: pointer;
+    }
+    .upload-zone.dragging { border-color: var(--accent); background: #202719; }
+    .upload-icon { font-size: 21px; color: var(--accent); margin-bottom: 5px; }
+    .upload-zone strong { color: #e5e8ee; font-size: 11px; }
+    .upload-zone span { margin-top: 3px; font-size: 10px; }
+    .file-name { color: var(--accent); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 6px; }
+    .control-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 11px 0; }
+    .control-row label { color: #b0b6c1; font-size: 11px; }
+    .control-row select { width: 150px; padding: 7px 8px; }
+    .toggle { display: flex; align-items: center; gap: 8px; color: #c2c7d0; font-size: 11px; }
+    .toggle input { accent-color: var(--accent-dark); width: 15px; height: 15px; }
+    .number-control { display: flex; align-items: center; gap: 8px; }
+    .number-control input { width: 57px; text-align: center; padding: 6px; }
+    .primary-btn, .secondary-btn, .icon-btn {
+      border: 1px solid transparent; border-radius: 7px; font-weight: 700; transition: .15s ease;
+    }
+    .primary-btn { background: var(--accent); color: #161a10; padding: 10px 12px; }
+    .primary-btn:hover { background: #d5ff82; transform: translateY(-1px); }
+    .primary-btn:disabled { opacity: .48; cursor: wait; transform: none; }
+    .secondary-btn { background: #2a2e37; border-color: #383d48; color: #e7eaf0; padding: 8px 10px; }
+    .secondary-btn:hover, .icon-btn:hover { background: #353a45; }
+    .icon-btn { width: 33px; height: 32px; border-color: #3a3f4b; background: #252831; }
+    .full-width { width: 100%; }
+    .small-note { color: #858c9a; font-size: 10px; margin-top: 8px; }
+    .progress-shell { background: #101217; border: 1px solid var(--line); padding: 10px; border-radius: 8px; }
+    .progress-meta { display: flex; justify-content: space-between; color: #bac0ca; font-size: 11px; margin-bottom: 7px; }
+    .progress-track { height: 5px; border-radius: 5px; background: #30343e; overflow: hidden; }
+    .progress-fill { width: 0; height: 100%; background: var(--accent); transition: width .3s ease; }
+    .stage-list { display: grid; gap: 6px; margin-top: 12px; }
+    .stage-item { display: flex; align-items: center; gap: 8px; color: #777f8d; font-size: 10px; }
+    .stage-item.active { color: #e4e9f1; }
+    .stage-item.done { color: var(--accent); }
+    .stage-mark { width: 14px; height: 14px; border: 1px solid #505662; border-radius: 50%; display: grid; place-items: center; font-size: 8px; }
+    .stage-item.done .stage-mark { color: #171a12; background: var(--accent); border-color: var(--accent); }
+    .log-box {
+      height: 91px; overflow-y: auto; margin-top: 9px; padding: 8px; background: #0e1014;
+      border: 1px solid #252a32; border-radius: 6px; color: #949caa; font: 10px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .log-line { margin-bottom: 3px; }
+    .log-time { color: #687281; }
+    .center-panel { min-width: 0; padding: 18px clamp(16px, 3vw, 42px) 25px; display: flex; flex-direction: column; align-items: center; }
+    .stage-topline { width: 100%; max-width: 820px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .stage-label { display: flex; align-items: center; gap: 8px; color: #afb6c2; font-size: 11px; }
+    .live-badge { border-radius: 4px; padding: 3px 6px; background: #222a1a; color: var(--accent); font-size: 9px; font-weight: 750; letter-spacing: .05em; }
+    .stage-tools { display: flex; gap: 6px; }
+    .monitor-wrap { position: relative; width: min(100%, 340px); aspect-ratio: 9 / 16; max-height: min(64vh, 590px); overflow: hidden; background: #090a0d; border: 1px solid #3b404c; border-radius: 10px; box-shadow: 0 14px 40px #0008; }
+    .monitor-wrap video { width: 100%; height: 100%; display: block; object-fit: contain; background: #08090c; }
+    .monitor-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; color: #6d7482; text-align: center; padding: 22px; }
+    .monitor-empty .play-shape { font-size: 31px; color: #555d6b; }
+    .safe-zone {
+      display: none; pointer-events: none; position: absolute; inset: 14% 9% 18%;
+      border: 1px dashed #ffffff70; border-radius: 4px;
+    }
+    .safe-zone::before, .safe-zone::after { content: ""; position: absolute; left: 0; right: 0; border-top: 1px dashed #ffffff30; }
+    .safe-zone::before { top: 50%; } .safe-zone::after { bottom: 20%; }
+    .safe-zone.show { display: block; }
+    .transport { display: flex; align-items: center; gap: 11px; margin-top: 11px; color: #aab1bd; }
+    .transport .icon-btn { width: 31px; height: 29px; }
+    .timecode { min-width: 87px; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; color: #d5d9e1; }
+    .transport select { width: 61px; padding: 5px; font-size: 10px; }
+    .timeline { width: 100%; max-width: 820px; margin-top: 18px; background: #1a1d24; border: 1px solid var(--line); border-radius: 9px; padding: 12px; }
+    .timeline-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; }
+    .timeline-title { font-weight: 700; font-size: 11px; }
+    .duration-badge { color: var(--accent); background: #252b1e; padding: 3px 7px; border-radius: 5px; font: 10px ui-monospace, monospace; }
+    .timeline-ruler { display: flex; justify-content: space-between; color: #737b89; font: 9px ui-monospace, monospace; margin: 0 3px 5px; }
+    .clip-track {
+      position: relative; height: 37px; border-radius: 5px; overflow: visible;
+      background: repeating-linear-gradient(90deg, #303744 0 1px, transparent 1px 8px), #242a34;
+    }
+    .clip-selection { position: absolute; top: 0; bottom: 0; background: #c6f36b27; border-top: 1px solid var(--accent-dark); border-bottom: 1px solid var(--accent-dark); }
+    .clip-wave { position: absolute; inset: 7px 0; opacity: .35; background: repeating-linear-gradient(90deg, transparent 0 7px, #82a8ff 7px 9px, transparent 9px 13px, #82a8ff 13px 15px, transparent 15px 20px); clip-path: polygon(0 53%,2% 25%,4% 76%,6% 40%,8% 85%,10% 12%,12% 66%,14% 33%,16% 73%,18% 19%,20% 82%,22% 30%,24% 60%,26% 15%,28% 74%,30% 42%,32% 92%,34% 22%,36% 58%,38% 26%,40% 73%,42% 13%,44% 88%,46% 32%,48% 62%,50% 20%,52% 82%,54% 37%,56% 70%,58% 17%,60% 83%,62% 27%,64% 57%,66% 20%,68% 80%,70% 40%,72% 95%,74% 22%,76% 57%,78% 16%,80% 75%,82% 32%,84% 67%,86% 13%,88% 82%,90% 29%,92% 61%,94% 19%,96% 78%,98% 43%,100% 50%); }
+    .trim-handle { position: absolute; z-index: 3; top: -4px; width: 12px; height: 45px; border: 2px solid #10130d; background: var(--accent); border-radius: 4px; cursor: ew-resize; }
+    .trim-handle::after { content: ""; position: absolute; top: 12px; left: 3px; width: 2px; height: 16px; border-left: 1px solid #35500d; border-right: 1px solid #35500d; }
+    .playhead { position: absolute; z-index: 2; top: -7px; height: 50px; width: 1px; background: #ff636d; }
+    .playhead::before { content: ""; position: absolute; left: -4px; top: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid #ff636d; }
+    .trim-sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 12px; }
+    .trim-field { display: flex; align-items: center; gap: 7px; color: #929aa8; font-size: 10px; }
+    .trim-field input { width: 100%; accent-color: var(--accent-dark); }
+    .right-head { margin: 0 0 12px; }
+    .clip-list { display: grid; gap: 8px; max-height: 38vh; overflow-y: auto; padding: 1px 2px 4px 0; }
+    .clip-card {
+      display: grid; grid-template-columns: 72px 1fr; gap: 9px; padding: 8px; border-radius: 8px;
+      border: 1px solid #30343e; background: #20232b; cursor: pointer;
+    }
+    .clip-card:hover { border-color: #5a6250; }
+    .clip-card.active { border-color: var(--accent-dark); background: #242a20; }
+    .clip-thumb { aspect-ratio: 9 / 12; overflow: hidden; background: #111318; border-radius: 5px; }
+    .clip-thumb video, .clip-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .clip-card-copy { min-width: 0; }
+    .clip-card-title { margin: 2px 0 4px; font-weight: 700; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .clip-card-reason { color: #8e96a4; font-size: 9px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .clip-meta { display: flex; align-items: center; gap: 7px; margin-top: 6px; color: #a7afbc; font-size: 9px; }
+    .score { color: var(--accent); font-weight: 800; }
+    .transcript-box { margin-top: 17px; }
+    .transcript-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
+    .transcript-hint { color: #737b89; font-size: 9px; }
+    .transcript-box textarea { min-height: 114px; resize: vertical; font-size: 11px; line-height: 1.55; }
+    .export-row { display: grid; grid-template-columns: 1fr 36px; gap: 7px; margin-top: 9px; }
+    .archive { padding: 27px clamp(18px, 4vw, 52px); }
+    .archive-header { display: flex; align-items: end; justify-content: space-between; gap: 15px; margin-bottom: 22px; }
+    h1 { font-size: 23px; margin: 0 0 4px; letter-spacing: -.03em; }
+    .subheading { color: var(--muted); }
+    .project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(235px, 1fr)); gap: 15px; }
+    .project-card { overflow: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+    .project-image { height: 146px; background: #0b0d11; overflow: hidden; }
+    .project-image img { width: 100%; height: 100%; object-fit: cover; }
+    .project-copy { padding: 13px; }
+    .project-title { font-weight: 750; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .project-details { color: var(--muted); font-size: 10px; margin: 6px 0 12px; display: flex; gap: 8px; }
+    .project-details span::before { content: "·"; margin-right: 8px; color: #5b6270; }
+    .project-details span:first-child::before { content: ""; margin: 0; }
+    .empty-state { text-align: center; padding: 65px 15px; color: var(--muted); border: 1px dashed #383d47; border-radius: 10px; }
+    .toast { position: fixed; right: 20px; bottom: 18px; z-index: 10; max-width: 360px; padding: 11px 14px; border-radius: 8px; background: #282d36; border: 1px solid #4a505d; box-shadow: 0 10px 30px #0008; }
+    .toast.error { border-color: #a7474c; color: #ffd5d7; }
+    .hidden { display: none !important; }
+    @media (max-width: 1120px) {
+      .workspace { grid-template-columns: 250px minmax(360px, 1fr) 300px; }
+      .engine-status { gap: 7px; } .engine { font-size: 9px; }
+      .brand { min-width: 155px; }
+    }
+    @media (max-width: 900px) {
+      .topbar { padding: 0 12px; gap: 10px; height: auto; min-height: 60px; flex-wrap: wrap; }
+      .brand { min-width: 0; } .brand-caption, .project-badge { display: none; }
+      .engine-status { margin-left: auto; padding-left: 8px; }
+      .engine:nth-child(3) { display: none; }
+      .view-tabs { order: 4; width: 100%; justify-content: center; height: 39px; }
+      .workspace { grid-template-columns: minmax(220px, 34%) 1fr; }
+      .right-panel { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); }
+      .clip-list { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); max-height: none; }
+      .monitor-wrap { max-height: 52vh; }
+    }
+    @media (max-width: 620px) {
+      .workspace { display: flex; flex-direction: column; }
+      .left-panel { border-right: 0; border-bottom: 1px solid var(--line); max-height: none; }
+      .center-panel { order: 2; padding: 18px 12px; }
+      .right-panel { order: 3; }
+      .monitor-wrap { width: min(75vw, 320px); max-height: 58vh; }
+      .engine-status { gap: 6px; } .engine { font-size: 0; } .engine .dot { width: 8px; height: 8px; }
+      .brand-name { font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">C</div>
+        <div><div class="brand-name">CUTLINE</div><div class="brand-caption">Local Video Studio</div></div>
+      </div>
+      <div id="activeProject" class="project-badge">No project open</div>
+      <nav class="view-tabs" aria-label="Main views">
+        <button class="view-tab active" data-view="editor">Editor Studio</button>
+        <button class="view-tab" data-view="archive">Projects Archive</button>
+      </nav>
+      <div class="engine-status" aria-label="Local engines">
+        <div class="engine"><i class="dot"></i>Whisper: Local</div>
+        <div class="engine"><i class="dot"></i>FFmpeg: Ready</div>
+        <div class="engine"><i class="dot"></i>FaceTrack: Active</div>
+      </div>
+    </header>
+    <main>
+      <section id="editorView" class="workspace">
+        <aside class="panel left-panel">
+          <section class="section">
+            <div class="panel-heading"><span class="eyebrow">Media source</span><span class="live-badge">LOCAL FIRST</span></div>
+            <div class="source-switch">
+              <button class="source-tab active" data-source="youtube">YouTube URL</button>
+              <button class="source-tab" data-source="file">Local video file</button>
+            </div>
+            <div id="youtubeInput">
+              <label class="field-label" for="youtubeUrl">Video link</label>
+              <input id="youtubeUrl" class="field" type="url" placeholder="https://youtube.com/watch?v=…" autocomplete="url">
+            </div>
+            <div id="fileInput" class="hidden">
+              <label id="dropZone" class="upload-zone" for="videoFile">
+                <span class="upload-icon">⇧</span><strong>Drop a video or browse files</strong>
+                <span>MP4, MKV or MOV · processed on this device</span>
+                <span id="fileName" class="file-name"></span>
+              </label>
+              <input id="videoFile" type="file" accept=".mp4,.mkv,.mov,video/mp4,video/x-matroska,video/quicktime" hidden>
+            </div>
+          </section>
+          <section class="section">
+            <div class="panel-heading"><span class="eyebrow">Export settings</span></div>
+            <div class="control-row">
+              <label for="framingMode">Framing mode</label>
+              <select id="framingMode">
+                <option value="face">Auto Face-Track 9:16</option>
+                <option value="blur">Blur Fill 9:16</option>
+                <option value="center">Center Crop 9:16</option>
+              </select>
+            </div>
+            <div class="control-row">
+              <label class="toggle"><input id="captionsEnabled" type="checkbox" checked> Kinetic captions</label>
+              <select id="highlightColor" aria-label="Caption highlight color">
+                <option value="yellow">Yellow</option><option value="cyan">Cyan</option>
+                <option value="green">Green</option><option value="white">White</option>
+              </select>
+            </div>
+            <div class="control-row">
+              <label for="targetCount">Target clip count</label>
+              <div class="number-control"><input id="targetCount" class="field" type="number" min="1" max="12" value="5"></div>
+            </div>
+            <button id="processButton" class="primary-btn full-width">✦ &nbsp;Find viral clips</button>
+            <div class="small-note">Local uploads work offline with a local Whisper model. YouTube downloads and Gemini hook analysis require internet access.</div>
+            <div id="modelWarning" class="small-note hidden" style="color:#e7b45a">Local Whisper model is missing. Set WHISPER_MODEL_PATH in .env to a local CTranslate2 model before processing.</div>
+          </section>
+          <section>
+            <div class="panel-heading"><span class="eyebrow">Pipeline activity</span><span id="progressPercent">0%</span></div>
+            <div class="progress-shell">
+              <div class="progress-meta"><span id="progressStage">Ready</span><span id="progressMessage">Waiting for media</span></div>
+              <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
+              <div id="stageList" class="stage-list">
+                <div class="stage-item" data-stage="Ingesting"><span class="stage-mark">1</span>Ingesting</div>
+                <div class="stage-item" data-stage="Transcribing"><span class="stage-mark">2</span>Transcribing</div>
+                <div class="stage-item" data-stage="Detecting Viral Hooks"><span class="stage-mark">3</span>Detecting Viral Hooks</div>
+                <div class="stage-item" data-stage="Face Tracking & Reframing"><span class="stage-mark">4</span>Face Tracking & Reframing</div>
+                <div class="stage-item" data-stage="Rendering Captions"><span class="stage-mark">5</span>Rendering Captions</div>
+              </div>
+              <div id="logBox" class="log-box"><div class="log-line">Studio initialized. Ready for local media.</div></div>
+            </div>
+          </section>
+        </aside>
+        <section class="center-panel">
+          <div class="stage-topline">
+            <div class="stage-label"><span class="live-badge">9:16</span><span id="stageTitle">Preview monitor</span></div>
+            <div class="stage-tools">
+              <button id="safeZoneButton" class="secondary-btn" title="Toggle social media safe zones">Safe zones</button>
+              <button id="fitButton" class="secondary-btn" title="Fit preview">Fit</button>
+            </div>
+          </div>
+          <div class="monitor-wrap">
+            <video id="previewVideo" playsinline preload="metadata"></video>
+            <div id="monitorEmpty" class="monitor-empty"><span class="play-shape">▶</span><strong>Vertical preview stage</strong><span>Process a source, then select a clip from the bin.</span></div>
+            <div id="safeZone" class="safe-zone"></div>
+          </div>
+          <div class="transport">
+            <button id="playButton" class="icon-btn" aria-label="Play preview">▶</button>
+            <button id="restartButton" class="icon-btn" aria-label="Restart preview">↺</button>
+            <span id="timecode" class="timecode">00:00.00</span>
+            <select id="playbackSpeed" aria-label="Playback speed"><option value="1">1x</option><option value="1.5">1.5x</option></select>
+            <span id="resolutionLabel" class="timecode">1080 × 1920</span>
+          </div>
+          <div class="timeline">
+            <div class="timeline-head"><div class="timeline-title">CLIP TIMELINE <span style="color:#737b89;font-weight:400">/ trim source range</span></div><span id="durationBadge" class="duration-badge">00:00.00</span></div>
+            <div id="timelineRuler" class="timeline-ruler"><span>IN · 00:00.00</span><span>OUT · 00:00.00</span></div>
+            <div id="clipTrack" class="clip-track">
+              <div id="clipSelection" class="clip-selection"></div><div class="clip-wave"></div>
+              <div id="inHandle" class="trim-handle" title="Drag trim in"></div>
+              <div id="outHandle" class="trim-handle" title="Drag trim out"></div>
+              <div id="playhead" class="playhead"></div>
+            </div>
+            <div class="trim-sliders">
+              <label class="trim-field"><span>IN</span><input id="startSlider" type="range" min="0" max="100" step="0.05" value="0"><span id="startValue">00:00.00</span></label>
+              <label class="trim-field"><span>OUT</span><input id="endSlider" type="range" min="0" max="100" step="0.05" value="0"><span id="endValue">00:00.00</span></label>
+            </div>
+            <button id="rerenderButton" class="primary-btn full-width" style="margin-top:13px" disabled>Apply &amp; Re-Render Clip</button>
+          </div>
+        </section>
+        <aside class="panel right-panel">
+          <div class="panel-heading right-head"><span class="eyebrow">Viral clips bin</span><span id="clipCount" class="live-badge">0 CLIPS</span></div>
+          <div id="clipList" class="clip-list"></div>
+          <div id="clipEmpty" class="empty-state" style="padding:24px 12px">Your processed shorts will appear here.</div>
+          <div class="transcript-box">
+            <div class="transcript-header"><span class="eyebrow">Transcript &amp; captions</span><span class="transcript-hint">Editable</span></div>
+            <textarea id="captionEditor" placeholder="Select a clip to edit its caption text…" aria-label="Editable clip transcript"></textarea>
+            <div class="export-row">
+              <a id="downloadButton" class="primary-btn full-width" href="#" download style="display:block;text-align:center;text-decoration:none;opacity:.5;pointer-events:none">↓ &nbsp;Download 1080×1920 MP4</a>
+              <button id="copyCaptionButton" class="icon-btn" title="Copy caption text">⧉</button>
+            </div>
+            <div class="small-note">Changes are burned into the next local render. Only your selected clip is re-rendered.</div>
+          </div>
+        </aside>
+      </section>
+      <section id="archiveView" class="archive hidden">
+        <div class="archive-header">
+          <div><h1>Projects Archive</h1><div class="subheading">Your local edits, ready to reopen. No cloud sync.</div></div>
+          <button id="refreshProjectsButton" class="secondary-btn">↻ &nbsp; Refresh projects</button>
+        </div>
+        <div id="projectGrid" class="project-grid"></div>
+        <div id="archiveEmpty" class="empty-state hidden">No projects yet. Process a video in Editor Studio to get started.</div>
+      </section>
+    </main>
+  </div>
+  <script>
+    "use strict";
+    const $ = (selector) => document.querySelector(selector);
+    const state = { sourceMode: "youtube", file: null, project: null, clip: null, job: null, eventSource: null };
+    const stageOrder = ["Ingesting", "Transcribing", "Detecting Viral Hooks", "Face Tracking & Reframing", "Rendering Captions", "Complete"];
+    let toastTimer;
+
+    function showToast(message, error = false) {
+      const old = $(".toast");
+      if (old) old.remove();
+      const element = document.createElement("div");
+      element.className = `toast${error ? " error" : ""}`;
+      element.textContent = message;
+      document.body.append(element);
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => element.remove(), 4800);
+    }
+    function formatTime(value) {
+      const safe = Math.max(0, Number(value) || 0);
+      const minutes = Math.floor(safe / 60);
+      const seconds = safe % 60;
+      return `${String(minutes).padStart(2, "0")}:${seconds.toFixed(2).padStart(5, "0")}`;
+    }
+    function addLog(message) {
+      const box = $("#logBox");
+      const row = document.createElement("div");
+      row.className = "log-line";
+      const time = document.createElement("span");
+      time.className = "log-time";
+      time.textContent = `${new Date().toLocaleTimeString([], { hour12: false })}  `;
+      row.append(time, document.createTextNode(message));
+      box.append(row);
+      box.scrollTop = box.scrollHeight;
+    }
+    function selectSourceMode(mode) {
+      state.sourceMode = mode;
+      document.querySelectorAll(".source-tab").forEach((button) => button.classList.toggle("active", button.dataset.source === mode));
+      $("#youtubeInput").classList.toggle("hidden", mode !== "youtube");
+      $("#fileInput").classList.toggle("hidden", mode !== "file");
+    }
+    document.querySelectorAll(".source-tab").forEach((button) => button.addEventListener("click", () => selectSourceMode(button.dataset.source)));
+
+    $("#videoFile").addEventListener("change", (event) => {
+      state.file = event.target.files[0] || null;
+      $("#fileName").textContent = state.file ? state.file.name : "";
+    });
+    const dropZone = $("#dropZone");
+    for (const eventName of ["dragenter", "dragover"]) dropZone.addEventListener(eventName, (event) => { event.preventDefault(); dropZone.classList.add("dragging"); });
+    for (const eventName of ["dragleave", "drop"]) dropZone.addEventListener(eventName, (event) => {
+      event.preventDefault(); dropZone.classList.remove("dragging");
+      if (eventName === "drop" && event.dataTransfer.files.length) {
+        state.file = event.dataTransfer.files[0];
+        $("#videoFile").files = event.dataTransfer.files;
+        $("#fileName").textContent = state.file.name;
+      }
+    });
+
+    function optionsFromForm() {
+      return {
+        target_count: Math.min(12, Math.max(1, Number($("#targetCount").value) || 5)),
+        framing_mode: $("#framingMode").value,
+        captions_enabled: $("#captionsEnabled").checked,
+        highlight_color: $("#highlightColor").value
+      };
+    }
+    async function startProcessing() {
+      const options = optionsFromForm();
+      const body = new FormData();
+      let requestOptions;
+      if (state.sourceMode === "file") {
+        if (!state.file) return showToast("Choose a local video file first.", true);
+        body.append("file", state.file);
+        Object.entries(options).forEach(([key, value]) => body.append(key, value));
+        requestOptions = { method: "POST", body };
+      } else {
+        const url = $("#youtubeUrl").value.trim();
+        if (!url) return showToast("Paste a YouTube URL first.", true);
+        requestOptions = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...options, url }) };
+      }
+      $("#processButton").disabled = true;
+      setProgress({ stage: "Queued", message: "Starting local worker", progress: 0 });
+      addLog("Starting source ingestion…");
+      try {
+        const response = await fetch("/api/process", requestOptions);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not start processing.");
+        state.job = data.job_id;
+        watchProgress(data.progress_url);
+      } catch (error) {
+        $("#processButton").disabled = false;
+        showToast(error.message, true);
+        addLog(`Error: ${error.message}`);
+      }
+    }
+    $("#processButton").addEventListener("click", startProcessing);
+    function watchProgress(url) {
+      if (state.eventSource) state.eventSource.close();
+      const events = new EventSource(url);
+      state.eventSource = events;
+      events.onmessage = async (event) => {
+        const update = JSON.parse(event.data);
+        setProgress(update);
+        addLog(`${update.stage}: ${update.message}`);
+        if (update.state === "done") {
+          events.close(); state.eventSource = null; $("#processButton").disabled = false;
+          showToast("Project is ready. Select a clip to preview and edit.");
+          await loadProject(update.project_id);
+          await loadProjects();
+        } else if (update.state === "failed") {
+          events.close(); state.eventSource = null; $("#processButton").disabled = false;
+          showToast(update.message || "Processing failed.", true);
+        }
+      };
+      events.onerror = () => addLog("Progress stream reconnecting…");
+    }
+    function setProgress(update) {
+      const value = Math.max(0, Math.min(100, Number(update.progress) || 0));
+      $("#progressFill").style.width = `${value}%`;
+      $("#progressPercent").textContent = `${Math.round(value)}%`;
+      $("#progressStage").textContent = update.stage || "Ready";
+      $("#progressMessage").textContent = update.message || "";
+      const activeIndex = stageOrder.indexOf(update.stage);
+      document.querySelectorAll(".stage-item").forEach((element, index) => {
+        element.classList.toggle("active", index === activeIndex);
+        element.classList.toggle("done", index < activeIndex || update.state === "done");
+        if (element.classList.contains("done")) element.querySelector(".stage-mark").textContent = "✓";
+      });
+    }
+
+    function showView(name) {
+      const archive = name === "archive";
+      $("#editorView").classList.toggle("hidden", archive);
+      $("#archiveView").classList.toggle("hidden", !archive);
+      document.querySelectorAll(".view-tab").forEach((button) => button.classList.toggle("active", button.dataset.view === name));
+      if (archive) loadProjects();
+    }
+    document.querySelectorAll(".view-tab").forEach((button) => button.addEventListener("click", () => showView(button.dataset.view)));
+    $("#refreshProjectsButton").addEventListener("click", loadProjects);
+
+    async function loadProjects() {
+      try {
+        const response = await fetch("/api/projects");
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to load projects.");
+        renderProjects(data.projects || []);
+      } catch (error) {
+        showToast(error.message, true);
+      }
+    }
+    function renderProjects(projects) {
+      const grid = $("#projectGrid");
+      grid.replaceChildren();
+      $("#archiveEmpty").classList.toggle("hidden", projects.length > 0);
+      for (const project of projects) {
+        const card = document.createElement("article");
+        card.className = "project-card";
+        const image = document.createElement("div"); image.className = "project-image";
+        if (project.thumbnail_url) {
+          const img = document.createElement("img"); img.src = project.thumbnail_url; img.alt = `${project.title} thumbnail`; img.loading = "lazy"; image.append(img);
+        }
+        const copy = document.createElement("div"); copy.className = "project-copy";
+        const title = document.createElement("div"); title.className = "project-title"; title.textContent = project.title || "Untitled project";
+        const details = document.createElement("div"); details.className = "project-details";
+        const date = project.created_at ? new Date(project.created_at).toLocaleDateString() : "Local project";
+        for (const item of [date, `${formatTime(project.duration)} source`, `${(project.clips || []).length} shorts`]) {
+          const span = document.createElement("span"); span.textContent = item; details.append(span);
+        }
+        const open = document.createElement("button"); open.className = "secondary-btn full-width"; open.textContent = "Open in Editor";
+        open.addEventListener("click", async () => { await loadProject(project.id); showView("editor"); });
+        copy.append(title, details, open); card.append(image, copy); grid.append(card);
+      }
+    }
+    async function loadProject(projectId) {
+      if (!projectId) return;
+      try {
+        const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Project could not be opened.");
+        state.project = data.project; state.clip = null;
+        $("#activeProject").textContent = state.project.title || "Untitled project";
+        renderClipList();
+        if (state.project.clips.length) selectClip(state.project.clips[0].id);
+      } catch (error) {
+        showToast(error.message, true);
+      }
+    }
+    function renderClipList() {
+      const list = $("#clipList");
+      list.replaceChildren();
+      const clips = state.project?.clips || [];
+      $("#clipCount").textContent = `${clips.length} CLIP${clips.length === 1 ? "" : "S"}`;
+      $("#clipEmpty").classList.toggle("hidden", clips.length > 0);
+      for (const clip of clips) {
+        const card = document.createElement("article");
+        card.className = `clip-card${state.clip?.id === clip.id ? " active" : ""}`;
+        card.addEventListener("click", () => selectClip(clip.id));
+        const thumb = document.createElement("div"); thumb.className = "clip-thumb";
+        if (clip.preview_url) {
+          const video = document.createElement("video"); video.src = clip.preview_url; video.muted = true; video.preload = "metadata"; thumb.append(video);
+        }
+        const copy = document.createElement("div"); copy.className = "clip-card-copy";
+        const title = document.createElement("div"); title.className = "clip-card-title"; title.textContent = clip.title || "Untitled hook";
+        const reason = document.createElement("div"); reason.className = "clip-card-reason"; reason.textContent = clip.reason || "Transcript highlight";
+        const meta = document.createElement("div"); meta.className = "clip-meta";
+        const score = document.createElement("span"); score.className = "score"; score.textContent = `✦ ${clip.score ?? 50}`;
+        const time = document.createElement("span"); time.textContent = `${formatTime(clip.duration ?? clip.end - clip.start)}`;
+        meta.append(score, time); copy.append(title, reason, meta); card.append(thumb, copy); list.append(card);
+      }
+    }
+    function selectClip(clipId) {
+      if (!state.project) return;
+      const clip = state.project.clips.find((item) => item.id === clipId);
+      if (!clip) return;
+      state.clip = clip;
+      $("#stageTitle").textContent = clip.title || "Selected clip";
+      $("#previewVideo").src = clip.preview_url || "";
+      $("#previewVideo").load();
+      $("#monitorEmpty").classList.toggle("hidden", Boolean(clip.preview_url));
+      $("#captionEditor").value = clip.caption || (clip.words || []).map((word) => word.word).join(" ");
+      $("#downloadButton").href = clip.preview_url || "#";
+      $("#downloadButton").style.opacity = clip.preview_url ? "1" : ".5";
+      $("#downloadButton").style.pointerEvents = clip.preview_url ? "auto" : "none";
+      $("#downloadButton").download = `${(clip.title || "cutline-clip").replace(/[^\w-]+/g, "-")}.mp4`;
+      $("#rerenderButton").disabled = false;
+      const sourceDuration = Number(state.project.duration) || clip.end;
+      for (const slider of [$("#startSlider"), $("#endSlider")]) { slider.max = sourceDuration; slider.step = Math.max(.02, sourceDuration / 2000); }
+      $("#startSlider").value = clip.start; $("#endSlider").value = clip.end;
+      updateTimeline();
+      renderClipList();
+    }
+    function updateTimeline() {
+      if (!state.project || !state.clip) return;
+      const duration = Number(state.project.duration) || state.clip.end;
+      const start = Number($("#startSlider").value);
+      const end = Number($("#endSlider").value);
+      const left = Math.max(0, Math.min(100, start / duration * 100));
+      const right = Math.max(left, Math.min(100, end / duration * 100));
+      $("#clipSelection").style.left = `${left}%`;
+      $("#clipSelection").style.width = `${right - left}%`;
+      $("#inHandle").style.left = `calc(${left}% - 6px)`;
+      $("#outHandle").style.left = `calc(${right}% - 6px)`;
+      $("#durationBadge").textContent = formatTime(Math.max(0, end - start));
+      $("#startValue").textContent = formatTime(start);
+      $("#endValue").textContent = formatTime(end);
+      $("#timelineRuler").firstElementChild.textContent = `IN · ${formatTime(start)}`;
+      $("#timelineRuler").lastElementChild.textContent = `OUT · ${formatTime(end)}`;
+      $("#startSlider").max = duration; $("#endSlider").max = duration;
+    }
+    $("#startSlider").addEventListener("input", () => {
+      if (Number($("#startSlider").value) >= Number($("#endSlider").value)) $("#startSlider").value = Math.max(0, Number($("#endSlider").value) - .1);
+      updateTimeline();
+    });
+    $("#endSlider").addEventListener("input", () => {
+      if (Number($("#endSlider").value) <= Number($("#startSlider").value)) $("#endSlider").value = Number($("#startSlider").value) + .1;
+      updateTimeline();
+    });
+    function bindHandle(element, slider) {
+      let dragging = false;
+      element.addEventListener("pointerdown", (event) => { dragging = true; element.setPointerCapture(event.pointerId); event.preventDefault(); });
+      element.addEventListener("pointermove", (event) => {
+        if (!dragging || !state.project) return;
+        const rect = $("#clipTrack").getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+        slider.value = ratio * Number(state.project.duration);
+        slider.dispatchEvent(new Event("input"));
+      });
+      element.addEventListener("pointerup", () => { dragging = false; });
+      element.addEventListener("pointercancel", () => { dragging = false; });
+    }
+    bindHandle($("#inHandle"), $("#startSlider")); bindHandle($("#outHandle"), $("#endSlider"));
+
+    $("#rerenderButton").addEventListener("click", async () => {
+      if (!state.project || !state.clip) return;
+      const button = $("#rerenderButton"); button.disabled = true; button.textContent = "Rendering clip locally…";
+      addLog(`Re-rendering ${state.clip.id} with updated trims and captions`);
+      try {
+        const response = await fetch("/api/refine", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project_id: state.project.id, clip_id: state.clip.id,
+            start: Number($("#startSlider").value), end: Number($("#endSlider").value),
+            framing_mode: $("#framingMode").value, captions_enabled: $("#captionsEnabled").checked,
+            highlight_color: $("#highlightColor").value, caption_text: $("#captionEditor").value
+          })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Clip render failed.");
+        state.project = data.project; state.clip = data.clip;
+        renderClipList(); selectClip(state.clip.id);
+        showToast("Clip re-rendered. Your new MP4 is ready to download.");
+      } catch (error) {
+        showToast(error.message, true); addLog(`Render error: ${error.message}`);
+      } finally {
+        button.disabled = false; button.textContent = "Apply & Re-Render Clip";
+      }
+    });
+    $("#safeZoneButton").addEventListener("click", () => $("#safeZone").classList.toggle("show"));
+    $("#fitButton").addEventListener("click", () => { if (state.clip?.preview_url) $("#previewVideo").currentTime = 0; });
+    $("#playButton").addEventListener("click", async () => {
+      const video = $("#previewVideo");
+      if (!video.src) return;
+      if (video.paused) { try { await video.play(); } catch (error) { showToast(error.message, true); } }
+      else video.pause();
+    });
+    $("#restartButton").addEventListener("click", () => { $("#previewVideo").currentTime = 0; });
+    $("#playbackSpeed").addEventListener("change", () => { $("#previewVideo").playbackRate = Number($("#playbackSpeed").value); });
+    $("#previewVideo").addEventListener("timeupdate", () => {
+      const video = $("#previewVideo");
+      $("#timecode").textContent = formatTime(video.currentTime);
+      $("#playhead").style.left = `${video.duration ? video.currentTime / video.duration * 100 : 0}%`;
+      $("#playButton").textContent = video.paused ? "▶" : "Ⅱ";
+    });
+    $("#previewVideo").addEventListener("ended", () => { $("#playButton").textContent = "▶"; });
+    $("#copyCaptionButton").addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText($("#captionEditor").value); showToast("Caption copied."); }
+      catch { showToast("Clipboard access is unavailable in this browser.", true); }
+    });
+
+    fetch("/api/health").then(async (response) => {
+      if (!response.ok) throw new Error("Local engine unavailable.");
+      const health = await response.json();
+      const whisperStatus = document.querySelector(".engine-status .engine");
+      $("#modelWarning").classList.toggle("hidden", Boolean(health.engines?.whisper_model));
+      if (!health.engines?.whisper_model) {
+        whisperStatus.title = "Local model not found. Configure WHISPER_MODEL_PATH in .env.";
+        whisperStatus.querySelector(".dot").style.background = "#e7b45a";
+      } else {
+        whisperStatus.title = "Local faster-whisper model is available.";
+      }
+    }).catch(() => showToast("Cannot reach the local backend. Start the studio with run_app.sh.", true));
+    loadProjects();
+  </script>
+</body>
+</html>
